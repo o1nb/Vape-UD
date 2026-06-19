@@ -31,7 +31,7 @@ local mainapi = {
     Scale = {Value = 1, Enabled = true},
     ToggleNotifications = {Enabled = true},
     ThreadFix = setthreadidentity and true or false,
-    Version = 'Sigma-Jello-1.2.3-librarycompat',
+    Version = 'Sigma-Jello-1.2.4-ref-aura',
     Windows = {}
 }
 
@@ -1550,7 +1550,29 @@ initGui()
 
 function mainapi:Clean(connection)
     if not connection then return connection end
-    table.insert(self.Connections, connection)
+    local cleanable = connection
+    if typeof and typeof(connection) == 'Instance' then
+        cleanable = {
+            Disconnect = function()
+                pcall(function()
+                    connection:ClearAllChildren()
+                    connection:Destroy()
+                end)
+            end
+        }
+    elseif type(connection) == 'function' then
+        local callback = connection
+        cleanable = {
+            Disconnect = function()
+                pcall(callback)
+            end
+        }
+    elseif type(connection) ~= 'table' and typeof and typeof(connection) ~= 'RBXScriptConnection' then
+        cleanable = {
+            Disconnect = function() end
+        }
+    end
+    table.insert(self.Connections, cleanable)
     return connection
 end
 
@@ -1942,25 +1964,27 @@ end
 
 function mainapi:CreateNotification(title, text, duration, notifType)
     if self.Notifications and self.Notifications.Enabled == false then return end
-    duration = duration or 2
+    duration = duration or 2.5
     local index = #notificationFolder:GetChildren()
     local notif = make('Frame', {
         Parent = notificationFolder,
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(1, 270, 1, -(24 + (index * 70))),
+        AnchorPoint = Vector2.new(0, 0),
+        Position = UDim2.fromOffset(-280, 6 + (index * 70)),
         Size = UDim2.fromOffset(260, 58)
     })
     addShadow(notif)
     make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 7), Size = UDim2.new(1, -24, 0, 22), FontFace = sigmaFontRegular, Text = tostring(title or 'Sigma'), TextColor3 = palette.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left})
-    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 0, 20), FontFace = sigmaFontLight, Text = tostring(text or ''), TextColor3 = palette.Muted, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
-    local bar = make('Frame', {Parent = notif, Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = notifType == 'alert' and Color3.fromRGB(255, 90, 90) or palette.Accent, BorderSizePixel = 0})
-    tween(notif, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -22, 1, -(24 + (index * 70)))})
+    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 29), Size = UDim2.new(1, -24, 0, 20), FontFace = sigmaFontLight, Text = tostring(text or ''), TextColor3 = palette.Muted, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
+    local bar = make('Frame', {Parent = notif, Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = notifType == 'alert' and Color3.fromRGB(255, 90, 90) or Color3.fromRGB(92, 145, 255), BorderSizePixel = 0})
+    tween(notif, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(10, 6 + (index * 70))})
     tween(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.fromOffset(0, 2)})
     task.delay(duration, function()
-        tween(notif, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 270, notif.Position.Y.Scale, notif.Position.Y.Offset)})
-        task.wait(0.3)
+        if not notif or not notif.Parent then return end
+        tween(notif, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.fromOffset(-280, notif.Position.Y.Offset)})
+        task.wait(0.28)
         if notif then notif:Destroy() end
     end)
 end
@@ -2534,6 +2558,28 @@ function fallbackPrediction.SolveTrajectory()
     return nil
 end
 
+
+local fallbackAuraAnims = {
+    Sigma = {
+        {CFrame = CFrame.Angles(math.rad(20), math.rad(-35), math.rad(8)), Time = 0.10},
+        {CFrame = CFrame.Angles(math.rad(-18), math.rad(35), math.rad(-10)), Time = 0.10},
+        {CFrame = CFrame.Angles(0, 0, 0), Time = 0.08}
+    },
+    Swing = {
+        {CFrame = CFrame.Angles(math.rad(35), math.rad(-20), math.rad(0)), Time = 0.10},
+        {CFrame = CFrame.Angles(math.rad(-35), math.rad(20), math.rad(0)), Time = 0.10},
+        {CFrame = CFrame.Angles(0, 0, 0), Time = 0.08}
+    },
+    Smooth = {
+        {CFrame = CFrame.Angles(math.rad(15), math.rad(-18), math.rad(4)), Time = 0.14},
+        {CFrame = CFrame.Angles(math.rad(-15), math.rad(18), math.rad(-4)), Time = 0.14},
+        {CFrame = CFrame.Angles(0, 0, 0), Time = 0.12}
+    },
+    Random = {
+        {CFrame = CFrame.Angles(math.rad(20), math.rad(20), math.rad(20)), Time = 0.12}
+    }
+}
+
 mainapi.Libraries = {
     tween = {Tween = tween},
     getcustomasset = getcustomasset,
@@ -2553,6 +2599,7 @@ mainapi.Libraries = {
 
 mainapi.Libraries.entity = loadSigmaLibrary('entity')
 mainapi.Libraries.prediction = loadSigmaLibrary('prediction', fallbackPrediction)
+mainapi.Libraries.auraanims = loadSigmaLibrary('auraanims', fallbackAuraAnims) or fallbackAuraAnims
 mainapi.Libraries.targetinfo = fallbackTargetInfo
 mainapi.Libraries.sessioninfo = fallbackSessionInfo
 mainapi.Libraries.whitelist = fallbackWhitelist
