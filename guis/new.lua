@@ -6036,7 +6036,7 @@ scaleslider = guipane:CreateSlider({
 })
 guipane:CreateDropdown({
 	Name = 'GUI Theme',
-	List = inputService.TouchEnabled and {'new', 'old'} or {'new', 'old', 'rise'},
+	List = inputService.TouchEnabled and {'new', 'old'} or {'new', 'old', 'rise', 'sigma'},
 	Function = function(val, mouse)
 		if mouse then
 			writefile('vape/profiles/gui.txt', val)
@@ -6044,11 +6044,11 @@ guipane:CreateDropdown({
 			if shared.VapeDeveloper then
 				loadstring(readfile('vape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'.readfile('vape/profiles/commit.txt').'/loader.lua', true))()
 			end
 		end
 	end,
-	Tooltip = 'new - The newest vape theme to since v4.05\nold - The vape theme pre v4.05\nrise - Rise 6.0'
+	Tooltip = 'new - New theme\nold - Old theme\nrise - Rise 6.0\nsigma - Jello Sigma theme'
 })
 mainapi.RainbowMode = guipane:CreateDropdown({
 	Name = 'Rainbow Mode',
