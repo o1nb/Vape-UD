@@ -688,7 +688,7 @@ components.Slider = function(settings, children, api)
         Position = UDim2.new(1, -70, 0, 2),
         Size = UDim2.fromOffset(62, 20),
         FontFace = sigmaFontLight,
-        Text = tostring(default)..(settings.Suffix and (' '..settings.Suffix) or ''),
+        Text = tostring(default)..getSuffixText(settings.Suffix, default),
         TextColor3 = palette.Muted,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Right
@@ -733,7 +733,7 @@ components.Slider = function(settings, children, api)
         self.Value = value
         local visual = math.clamp((value - min) / math.max(max - min, 0.0001), 0, 1)
         fill.Size = UDim2.fromScale(visual, 1)
-        valueLabel.Text = tostring(value)..(settings.Suffix and (' '..settings.Suffix) or '')
+        valueLabel.Text = tostring(value)..getSuffixText(settings.Suffix, value)
         if settings.Function then task.spawn(settings.Function, value, final) end
     end
     optionapi.Set = optionapi.SetValue
@@ -1576,12 +1576,36 @@ function mainapi:CreateSearch()
     return searchapi
 end
 
+local categoryAlias = {
+    Legit = 'Player',
+    Utility = 'Render',
+    World = 'Render',
+    Blatant = 'Combat',
+    Friends = 'Player',
+    Profiles = 'Player',
+    GUI = 'Render'
+}
+
+local function resolveCategoryName(name)
+    return categoryAlias[tostring(name or '')] or name
+end
+
 function mainapi:CreateCategory(categorysettings)
     categorysettings = categorysettings or {}
+    local requestedName = categorysettings.Name or 'Category'
+    local resolvedName = resolveCategoryName(requestedName) or requestedName
+    if self.Categories[requestedName] then
+        return self.Categories[requestedName]
+    end
+    if requestedName ~= resolvedName and self.Categories[resolvedName] then
+        self.Categories[requestedName] = self.Categories[resolvedName]
+        return self.Categories[resolvedName]
+    end
+    categorysettings.Name = resolvedName
     local categoryapi = {
         Type = 'Category',
-        Name = categorysettings.Name,
-        CategoryName = categorysettings.Name,
+        Name = resolvedName,
+        CategoryName = requestedName,
         Expanded = true,
         Options = {},
         Buttons = {},
@@ -1657,7 +1681,8 @@ function mainapi:CreateCategory(categorysettings)
         return components.ColorSlider(settings or {Name = 'GUI Color'}, self.Children, self)
     end
     attachComponentMethods(categoryapi, categoryapi.Children)
-    self.Categories[categorysettings.Name] = categoryapi
+    self.Categories[resolvedName] = categoryapi
+    self.Categories[requestedName] = categoryapi
     table.insert(categoryOrder, categoryapi)
     layoutCategories()
     return categoryapi
@@ -2560,6 +2585,11 @@ function mainapi:CreateDefaultCategories(list)
 end
 
 mainapi:CreateDefaultCategories()
+for aliasName, targetName in pairs(categoryAlias) do
+    if mainapi.Categories[targetName] then
+        mainapi.Categories[aliasName] = mainapi.Categories[targetName]
+    end
+end
 
 mainapi:Clean(inputService.InputBegan:Connect(function(inputObj, processed)
     if processed then return end
