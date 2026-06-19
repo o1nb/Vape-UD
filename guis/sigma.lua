@@ -57,6 +57,11 @@ local assetfunction = getcustomasset or getsynasset
 local getcustomasset
 
 local getcustomassets = {
+    ['vape/assets/new/blur.png'] = 'rbxassetid://14898786664',
+    ['vape/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
+    ['vape/assets/new/close.png'] = 'rbxassetid://14368309446',
+    ['vape/assets/new/expandright.png'] = 'rbxassetid://14368316544',
+    ['vape/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
     ['vape/assets/sigmajello/font.otf'] = '',
     ['vape/assets/sigmajello/CombatCat.png'] = '',
     ['vape/assets/sigmajello/ItemCat.png'] = '',
@@ -152,8 +157,11 @@ end
 local function normalizeAssetPath(path)
     path = trim(path):gsub('\\', '/')
 
-    -- Accept names like JelloPanel.png, assets/sigmajello/JelloPanel.png,
-    -- vape/assets/sigmajello/JelloPanel.png, and the accidental duplicated path.
+    -- Keep the same pattern as new.lua:
+    --   getcustomasset('vape/assets/new/blur.png') stays vape/assets/new/blur.png
+    --   getcustomasset('vape/assets/sigmajello/JelloPanel.png') stays vape/assets/sigmajello/JelloPanel.png
+    --   getcustomasset('JelloPanel.png') becomes vape/assets/sigmajello/JelloPanel.png
+    -- Also fix the accidental duplicated cache path.
     path = path:gsub('^newvape/', 'vape/')
     path = path:gsub('^/+', '')
 
@@ -161,11 +169,11 @@ local function normalizeAssetPath(path)
         path = path:gsub('assets/sigmajello/assets/sigmajello/', 'assets/sigmajello/')
     end
 
-    if path:find('^vape/assets/sigmajello/') then
+    if path:find('^vape/assets/') then
         return path
     end
 
-    if path:find('^assets/sigmajello/') then
+    if path:find('^assets/') then
         return 'vape/'..path
     end
 
@@ -1409,6 +1417,8 @@ local function createMusicPanel()
     mainapi.JelloMusic = music
     makeDraggable(music, music)
 
+    -- The PNG already contains the JelloMusic logo/layout. Do not draw a Sigma logo or any extra frame over it.
+
     -- Tiny invisible hitboxes so old code can still find/use music controls later.
     -- They do not draw anything over the PNG.
     local controls = {
@@ -2271,7 +2281,7 @@ local function createSigmaInterface()
         Parent = holder,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, 12),
+        Position = UDim2.new(1, -15, 0, 15),
         Size = UDim2.fromOffset(520, 700)
     })
     sigmaArrayLayout = Instance.new('UIListLayout')
@@ -2297,10 +2307,11 @@ function mainapi:UpdateTextGUI(afterload)
     clearSigmaArray()
     if not enabled then return end
 
-    local right = sigmaArrayHolder.AbsolutePosition.X > ((gui and gui.AbsoluteSize.X or 1920) / 2)
-    sigmaArrayLayout.HorizontalAlignment = right and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
-    sigmaArrayHolder.AnchorPoint = right and Vector2.new(1, 0) or Vector2.new(0, 0)
-    sigmaArrayHolder.Position = right and UDim2.new(1, -14, 0, 12) or UDim2.fromOffset(12, 78)
+    -- Jello/Rise style arraylist: always pinned to the top-right.
+    local right = true
+    sigmaArrayLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    sigmaArrayHolder.AnchorPoint = Vector2.new(1, 0)
+    sigmaArrayHolder.Position = UDim2.new(1, -15, 0, 15)
 
     sigmaWatermark.Visible = sigmaWatermarkToggle.Enabled
     sigmaWatermarkShadow.Visible = sigmaWatermarkToggle.Enabled and sigmaShadowToggle.Enabled
