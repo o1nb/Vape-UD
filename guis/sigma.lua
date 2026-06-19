@@ -94,7 +94,9 @@ end
 
 local function downloadFile(path, func)
     if not isfile(path) then
-        createDownloader(path)
+        if type(createDownloader) == 'function' then
+            pcall(createDownloader, path)
+        end
         makeFolderSafe('vape')
         makeFolderSafe('vape/assets')
         makeFolderSafe('vape/assets/sigmajello')
@@ -124,7 +126,7 @@ local function downloadFile(path, func)
         end
 
         if writefile then
-            writefile(path, res)
+            pcall(writefile, path, res)
         end
     end
 
