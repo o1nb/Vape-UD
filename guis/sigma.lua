@@ -8,6 +8,7 @@
 
 local mainapi = {
     Categories = {},
+    Components = {},
     Connections = {},
     GUIColor = {
         Hue = 0.58,
@@ -1207,6 +1208,36 @@ local function attachComponentMethods(api, children)
     api.CreateTextlist = api.CreateTextList
 end
 
+
+mainapi.Components = setmetatable(components, {
+    __newindex = function(self, ind, func)
+        rawset(self, ind, func)
+        for _, module in pairs(mainapi.Modules or {}) do
+            if type(module) == 'table' then
+                rawset(module, 'Create'..tostring(ind), function(_, settings)
+                    return func(settings or {}, module.Children, module)
+                end)
+            end
+        end
+        if mainapi.Legit and mainapi.Legit.Modules then
+            for _, module in pairs(mainapi.Legit.Modules) do
+                if type(module) == 'table' then
+                    rawset(module, 'Create'..tostring(ind), function(_, settings)
+                        return func(settings or {}, module.Children, module)
+                    end)
+                end
+            end
+        end
+        for _, category in pairs(mainapi.Categories or {}) do
+            if type(category) == 'table' and category.Children then
+                rawset(category, 'Create'..tostring(ind), function(_, settings)
+                    return func(settings or {}, category.Children, category)
+                end)
+            end
+        end
+    end
+})
+
 local function createJelloColumn(categorysettings, categoryapi, parent, visible)
     local window = make('TextButton', {
         Name = tostring(categorysettings.Name)..'Category',
@@ -1658,6 +1689,8 @@ function mainapi:CreateCategory(categorysettings)
         Expanded = true,
         Options = {},
         Buttons = {},
+        ListEnabled = {},
+        List = {},
         Pinned = false
     }
     createJelloColumn(categorysettings, categoryapi, clickgui, false)
@@ -2517,6 +2550,102 @@ local function loadSigmaLibrary(name, fallback)
     return fallback
 end
 
+
+local function newSigmaSignal()
+    local signal = {Connections = {}}
+    function signal:Connect(callback)
+        if type(callback) ~= 'function' then
+            return {Disconnect = function() end}
+        end
+        table.insert(self.Connections, callback)
+        local connected = true
+        return {
+            Disconnect = function()
+                if not connected then return end
+                connected = false
+                local index = table.find(signal.Connections, callback)
+                if index then table.remove(signal.Connections, index) end
+            end
+        }
+    end
+    function signal:Fire(...)
+        local callbacks = {}
+        for i, callback in ipairs(self.Connections) do
+            callbacks[i] = callback
+        end
+        for _, callback in ipairs(callbacks) do
+            task.spawn(callback, ...)
+        end
+    end
+    function signal:Destroy()
+        table.clear(self.Connections)
+    end
+    return signal
+end
+
+local fallbackEntity = {
+    Running = false,
+    List = {},
+    Connections = {},
+    PlayerConnections = {},
+    EntityThreads = {},
+    Events = {
+        LocalAdded = newSigmaSignal(),
+        LocalRemoved = newSigmaSignal(),
+        EntityAdded = newSigmaSignal(),
+        EntityRemoved = newSigmaSignal(),
+        EntityRemoving = newSigmaSignal(),
+        EntityUpdated = newSigmaSignal()
+    }
+}
+function fallbackEntity:start()
+    self.Running = true
+    return true
+end
+function fallbackEntity:refresh()
+    return self.List
+end
+function fallbackEntity:refreshEntity()
+    return nil
+end
+function fallbackEntity:addEntity(ent)
+    if ent then table.insert(self.List, ent) end
+    return ent
+end
+function fallbackEntity:addPlayer(plr)
+    return plr
+end
+function fallbackEntity:removeEntity(ent)
+    local index = table.find(self.List, ent)
+    if index then table.remove(self.List, index) end
+end
+function fallbackEntity:character(player)
+    return player and player.Character
+end
+function fallbackEntity:isAlive(ent)
+    local char = ent and (ent.Character or ent.RootPart and ent.RootPart.Parent or ent)
+    local hum = char and char:FindFirstChildOfClass('Humanoid')
+    return hum and hum.Health > 0 or false
+end
+function fallbackEntity:targetCheck()
+    return true
+end
+function fallbackEntity:getEntityColor()
+    return Color3.new(1, 1, 1)
+end
+function fallbackEntity:getUpdateConnections()
+    return {}
+end
+function fallbackEntity:AllPosition()
+    return {}
+end
+function fallbackEntity:EntityPosition()
+    return nil
+end
+function fallbackEntity:EntityMouse()
+    return nil
+end
+
 local fallbackTargetInfo = {
     Targets = {},
     LastTarget = nil,
@@ -2612,7 +2741,7 @@ mainapi.Libraries = {
     }
 }
 
-mainapi.Libraries.entity = loadSigmaLibrary('entity')
+mainapi.Libraries.entity = loadSigmaLibrary('entity', fallbackEntity) or fallbackEntity
 mainapi.Libraries.prediction = loadSigmaLibrary('prediction', fallbackPrediction)
 mainapi.Libraries.auraanims = fallbackAuraAnims or fallbackAuraAnims
 mainapi.Libraries.targetinfo = fallbackTargetInfo
@@ -2637,6 +2766,9 @@ mainapi.RainbowSpeed = mainapi.Categories.Main:CreateSlider({Name = 'Color speed
 mainapi.RainbowUpdateSpeed = mainapi.Categories.Main:CreateSlider({Name = 'Color update rate', Min = 1, Max = 144, Default = 60, Suffix = 'hz'})
 mainapi.Categories.Main:CreateButton({Name = 'Uninject', Function = function() mainapi:Uninject() end})
 
+if not mainapi.Legit or not mainapi.Legit.CreateModule then
+    mainapi.Legit = mainapi:CreateLegit()
+end
 
 -- Classic Jello category columns only.
 -- These are empty by default so your existing modules can populate them through the same API.
@@ -2674,6 +2806,17 @@ for aliasName, targetName in pairs(categoryAlias) do
         mainapi.Categories[aliasName] = mainapi.Categories[targetName]
     end
 end
+setmetatable(mainapi.Categories, {
+    __index = function(tab, key)
+        local target = categoryAlias[tostring(key)] or 'Render'
+        local category = rawget(tab, target) or rawget(tab, 'Render') or rawget(tab, 'Player')
+        if category then
+            rawset(tab, key, category)
+            return category
+        end
+        return nil
+    end
+})
 
 mainapi:Clean(inputService.InputBegan:Connect(function(inputObj, processed)
     if processed then return end
