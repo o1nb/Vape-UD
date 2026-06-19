@@ -5915,9 +5915,9 @@ general:CreateButton({
 		end
 		shared.vapereload = true
 		if shared.VapeDeveloper then
-			loadstring(readfile('vape/loader.lua'), 'loader')()
+			loadstring(readfile('vape/loader-new.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader-new.lua', true))()
 		end
 	end,
 	Tooltip = 'This will set your profile to the default settings of Vape'
@@ -5934,9 +5934,9 @@ general:CreateButton({
 	Function = function()
 		shared.vapereload = true
 		if shared.VapeDeveloper then
-			loadstring(readfile('vape/loader.lua'), 'loader')()
+			loadstring(readfile('vape/loader-new.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader-new.lua', true))()
 		end
 	end,
 	Tooltip = 'Reloads vape for debugging purposes'
@@ -6042,9 +6042,9 @@ guipane:CreateDropdown({
 			writefile('vape/profiles/gui.txt', val)
 			shared.vapereload = true
 			if shared.VapeDeveloper then
-				loadstring(readfile('vape/loader.lua'), 'loader')()
+				loadstring(readfile('vape/loader-new.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'.readfile('vape/profiles/commit.txt').'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'.readfile('vape/profiles/commit.txt').'/loader-new.lua', true))()
 			end
 		end
 	end,
