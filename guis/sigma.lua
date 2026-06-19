@@ -499,10 +499,15 @@ local function updateWindowSize(api)
     local extra = api.HeaderHeight or 48
     local minHeight = api.MinHeight or extra
     local maxHeight = api.MaxHeight or 650
-    local height = math.clamp(extra + layout.AbsoluteContentSize.Y, minHeight, maxHeight)
+    local contentHeight = layout.AbsoluteContentSize.Y
+    local height = math.clamp(extra + contentHeight, minHeight, maxHeight)
     api.Object.Size = UDim2.fromOffset(api.Width or columnWidth, height)
     if api.Children then
         api.Children.Size = UDim2.new(1, 0, 1, -extra)
+        if api.Children:IsA('ScrollingFrame') then
+            api.Children.CanvasSize = UDim2.fromOffset(0, contentHeight)
+            api.Children.ScrollingEnabled = contentHeight > math.max(height - extra, 0)
+        end
     end
 end
 
@@ -1254,13 +1259,20 @@ local function createJelloColumn(categorysettings, categoryapi, parent, visible)
         TextSize = 22,
         ZIndex = 3
     })
-    local children = make('Frame', {
+    local children = make('ScrollingFrame', {
         Name = 'Children',
         Parent = window,
         BackgroundTransparency = 1,
+        BorderSizePixel = 0,
         Position = UDim2.fromOffset(0, 48),
         Size = UDim2.new(1, 0, 1, -48),
-        ZIndex = 2
+        ZIndex = 2,
+        CanvasSize = UDim2.fromOffset(0, 0),
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Color3.fromRGB(190, 190, 190),
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        AutomaticCanvasSize = Enum.AutomaticSize.None,
+        ClipsDescendants = true
     })
     local layout = addLayout(children, UDim.new(0, 0))
 
@@ -1617,7 +1629,10 @@ local categoryAlias = {
     Blatant = 'Combat',
     Friends = 'Player',
     Profiles = 'Player',
-    GUI = 'Render'
+    GUI = 'Render',
+    Inventory = 'Item',
+    Minigames = 'Render',
+    Targets = 'Player'
 }
 
 local function resolveCategoryName(name)
@@ -2599,7 +2614,7 @@ mainapi.Libraries = {
 
 mainapi.Libraries.entity = loadSigmaLibrary('entity')
 mainapi.Libraries.prediction = loadSigmaLibrary('prediction', fallbackPrediction)
-mainapi.Libraries.auraanims = loadSigmaLibrary('auraanims', fallbackAuraAnims) or fallbackAuraAnims
+mainapi.Libraries.auraanims = fallbackAuraAnims or fallbackAuraAnims
 mainapi.Libraries.targetinfo = fallbackTargetInfo
 mainapi.Libraries.sessioninfo = fallbackSessionInfo
 mainapi.Libraries.whitelist = fallbackWhitelist
