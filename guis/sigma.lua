@@ -47,98 +47,13 @@ local textService = cloneref(game:GetService('TextService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
 
 
--- Optional Jello PNG asset pack support.
--- Matches the same download style as new.lua, but uses:
---   local path: vape/assets/sigmajello/<file>.png
---   remote:     https://raw.githubusercontent.com/o1nb/Vape-UD/<commit>/assets/sigmajello/<file>.png
--- If getcustomasset/isfile/writefile are unavailable, Sigma falls back to pure Roblox UI.
+-- Sigma/Jello PNG asset support.
+-- This follows the same pattern as new.lua:
+-- 1. local getcustomassets = { ... }
+-- 2. downloadFile(path, func) pulls from GitHub when the file is missing
+-- 3. getcustomasset(path) returns the executor custom asset path, or a table fallback
 local assetfunction = getcustomasset or getsynasset
 local getcustomasset
-local isfile = isfile or function(path)
-    local ok, res = pcall(function()
-        return readfile(path)
-    end)
-    return ok and res ~= nil and res ~= ''
-end
-
-local function makeFolderSafe(path)
-    if makefolder and (not isfolder or not isfolder(path)) then
-        pcall(makefolder, path)
-    end
-end
-
-local function urlEncodeFileName(name)
-    return tostring(name):gsub(' ', '%%20')
-end
-
-local function createDownloader(text)
-    if mainapi.Loaded ~= true then
-        local downloader = mainapi.Downloader
-        if not downloader and mainapi.gui then
-            downloader = Instance.new('TextLabel')
-            downloader.Name = 'Downloader'
-            downloader.Size = UDim2.new(1, 0, 0, 40)
-            downloader.BackgroundTransparency = 1
-            downloader.TextStrokeTransparency = 0
-            downloader.TextSize = 20
-            downloader.TextColor3 = Color3.new(1, 1, 1)
-            downloader.Font = Enum.Font.Arial
-            downloader.Parent = mainapi.gui
-            mainapi.Downloader = downloader
-        end
-        if downloader then
-            downloader.Text = 'Downloading '..text
-        end
-    end
-end
-
-local function downloadFile(path, func)
-    if not isfile(path) then
-        if type(createDownloader) == 'function' then
-            pcall(createDownloader, path)
-        end
-        makeFolderSafe('vape')
-        makeFolderSafe('vape/assets')
-        makeFolderSafe('vape/assets/sigmajello')
-
-        local commit = 'main'
-        pcall(function()
-            if isfile('vape/profiles/commit.txt') then
-                local readCommit = readfile('vape/profiles/commit.txt')
-                if readCommit and readCommit ~= '' then
-                    commit = readCommit
-                end
-            end
-        end)
-
-        local remotePath = select(1, path:gsub('vape/', ''))
-        remotePath = remotePath:gsub('([^/]+)$', function(fileName)
-            return urlEncodeFileName(fileName)
-        end)
-
-        local suc, res = pcall(function()
-            return game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..commit..'/'..remotePath, true)
-        end)
-
-        if not suc or not res or res == '' or res == '404: Not Found' then
-            warn('[Sigma] failed to download asset: '..tostring(path)..' | '..tostring(res))
-            return ''
-        end
-
-        if writefile then
-            pcall(writefile, path, res)
-        end
-    end
-
-    if func and isfile(path) then
-        local ok, asset = pcall(func, path)
-        if ok and asset then
-            return asset
-        end
-    end
-
-    return isfile(path) and path or ''
-end
 
 local getcustomassets = {
     ['vape/assets/sigmajello/CombatCat.png'] = '',
@@ -170,18 +85,179 @@ local getcustomassets = {
     ['vape/assets/sigmajello/switch.png'] = '',
     ['vape/assets/sigmajello/switchbg.png'] = '',
     ['vape/assets/sigmajello/unchecked.png'] = '',
-    ['vape/assets/sigmajello/warning.png'] = ''
+    ['vape/assets/sigmajello/warning.png'] = '',
 }
+
+local isfile = isfile or function(file)
+    local suc, res = pcall(function()
+        return readfile(file)
+    end)
+    return suc and res ~= nil and res ~= ''
+end
+
+local isfolder = isfolder or function(path)
+    if not listfiles then return false end
+    local suc, res = pcall(function()
+        return listfiles(path)
+    end)
+    return suc and type(res) == 'table'
+end
+
+local makefolder_real = makefolder
+local function makefolder_safe(path)
+    if isfolder(path) then return true end
+    if makefolder_real then
+        local suc = pcall(makefolder_real, path)
+        return suc or isfolder(path)
+    end
+    return false
+end
+
+local function ensureFolder(path)
+    local current = ''
+    for part in tostring(path):gsub('\\', '/'):gmatch('[^/]+') do
+        current = current == '' and part or (current..'/'..part)
+        makefolder_safe(current)
+    end
+    return isfolder(path)
+end
+
+local function trim(str)
+    return tostring(str or ''):gsub('^%s+', ''):gsub('%s+$', '')
+end
+
+local function createDownloader(text)
+    if mainapi.Loaded == true then return end
+    if not mainapi.gui then return end
+
+    local downloader = mainapi.Downloader
+    if not downloader then
+        downloader = Instance.new('TextLabel')
+        downloader.Name = 'Downloader'
+        downloader.Size = UDim2.new(1, 0, 0, 40)
+        downloader.BackgroundTransparency = 1
+        downloader.TextStrokeTransparency = 0
+        downloader.TextSize = 20
+        downloader.TextColor3 = Color3.new(1, 1, 1)
+        downloader.Font = Enum.Font.Arial
+        downloader.Parent = mainapi.gui
+        mainapi.Downloader = downloader
+    end
+
+    downloader.Text = 'Downloading '..tostring(text)
+end
+
+local function normalizeAssetPath(path)
+    path = trim(path):gsub('\\', '/')
+
+    -- Accept names like JelloPanel.png, assets/sigmajello/JelloPanel.png,
+    -- vape/assets/sigmajello/JelloPanel.png, and the accidental duplicated path.
+    path = path:gsub('^newvape/', 'vape/')
+    path = path:gsub('^/+', '')
+
+    while path:find('assets/sigmajello/assets/sigmajello/', 1, true) do
+        path = path:gsub('assets/sigmajello/assets/sigmajello/', 'assets/sigmajello/')
+    end
+
+    if path:find('^vape/assets/sigmajello/') then
+        return path
+    end
+
+    if path:find('^assets/sigmajello/') then
+        return 'vape/'..path
+    end
+
+    if path:find('^sigmajello/') then
+        return 'vape/assets/'..path
+    end
+
+    return 'vape/assets/sigmajello/'..path
+end
+
+local function getCommit()
+    local commit = 'main'
+    pcall(function()
+        if isfile('vape/profiles/commit.txt') then
+            local value = trim(readfile('vape/profiles/commit.txt'))
+            if value ~= '' then
+                commit = value
+            end
+        end
+    end)
+    return commit
+end
+
+local function encodeUrlPath(path)
+    return tostring(path):gsub(' ', '%%20')
+end
+
+local function downloadFile(path, func)
+    path = normalizeAssetPath(path)
+
+    if not isfile(path) then
+        pcall(createDownloader, path)
+        ensureFolder((path:match('^(.+)/[^/]+$') or 'vape/assets/sigmajello'))
+
+        local remotePath = select(1, path:gsub('vape/', ''))
+        local commit = getCommit()
+        local suc, res = pcall(function()
+            return game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..commit..'/'..encodeUrlPath(remotePath), true)
+        end)
+
+        if not suc or res == '404: Not Found' or not res or res == '' then
+            suc, res = pcall(function()
+                return game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/main/'..encodeUrlPath(remotePath), true)
+            end)
+        end
+
+        if not suc or res == '404: Not Found' or not res or res == '' then
+            warn('[Sigma] Failed to download asset: '..tostring(path))
+            return getcustomassets[path] or ''
+        end
+
+        if writefile then
+            local wrote = pcall(writefile, path, res)
+            if not wrote then
+                warn('[Sigma] Failed to write asset: '..tostring(path))
+                return getcustomassets[path] or ''
+            end
+        else
+            return getcustomassets[path] or ''
+        end
+    end
+
+    if func then
+        local suc, asset = pcall(func, path)
+        if suc and asset and asset ~= '' then
+            return asset
+        end
+        return ''
+    end
+
+    return readfile(path)
+end
 
 getcustomasset = not inputService.TouchEnabled and assetfunction and function(path)
     return downloadFile(path, assetfunction)
 end or function(path)
-    return getcustomassets[path] or ''
+    return getcustomassets[normalizeAssetPath(path)] or ''
 end
 
-local function sigmaAsset(name)
-    return getcustomasset('vape/assets/sigmajello/'..tostring(name)) or ''
+local function sigmaAsset(path)
+    return getcustomasset(path) or ''
 end
+
+function mainapi:DownloadSigmaAssets()
+    for path in next, getcustomassets do
+        pcall(downloadFile, path, assetfunction)
+    end
+end
+
+task.spawn(function()
+    if writefile and game and game.HttpGet then
+        mainapi:DownloadSigmaAssets()
+    end
+end)
 
 local localPlayer = playersService.LocalPlayer
 local gui, scaledgui, clickgui, notificationFolder, scale
