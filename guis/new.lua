@@ -6044,7 +6044,7 @@ guipane:CreateDropdown({
 			if shared.VapeDeveloper then
 				loadstring(readfile('vape/loader-new.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'.readfile('vape/profiles/commit.txt').'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..readfile('vape/profiles/commit.txt')..'/loader-new.lua', true))()
 			end
 		end
 	end,
