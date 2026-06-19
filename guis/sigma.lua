@@ -544,6 +544,18 @@ local function addOption(api, option)
     return option
 end
 
+
+local function getSuffixText(suffix, value)
+    if suffix == nil then return '' end
+    local suffixText = suffix
+    if type(suffix) == 'function' then
+        local ok, result = pcall(suffix, value)
+        suffixText = ok and result or ''
+    end
+    if suffixText == nil or suffixText == '' then return '' end
+    return ' '..tostring(suffixText)
+end
+
 local components = {}
 
 components.Button = function(settings, children, api)
@@ -1990,7 +2002,17 @@ function mainapi:Uninject()
         if module.Enabled and module.Toggle then protectcall(function() module:Toggle(true) end) end
     end
     for _, con in ipairs(self.Connections) do
-        protectcall(function() con:Disconnect() end)
+        protectcall(function()
+            if typeof(con) == 'RBXScriptConnection' then
+                con:Disconnect()
+            elseif type(con) == 'table' and type(con.Disconnect) == 'function' then
+                con:Disconnect()
+            elseif type(con) == 'function' then
+                con()
+            elseif typeof(con) == 'Instance' then
+                con:Destroy()
+            end
+        end)
     end
     if gui then gui:Destroy() end
     shared.vape = nil
