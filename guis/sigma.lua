@@ -56,7 +56,7 @@ local isfile = isfile or function(path)
     return ok and res ~= nil and res ~= ''
 end
 local function sigmaAsset(name)
-    local path = 'newvape/assets/sigmajello/'..tostring(name)
+    local path = 'vape/assets/sigmajello/'..tostring(name)
     if assetfunction and isfile(path) then
         local ok, asset = pcall(assetfunction, path)
         if ok and asset then return asset end
