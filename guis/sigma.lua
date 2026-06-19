@@ -348,6 +348,13 @@ local palette = {
     Control = Color3.fromRGB(43, 41, 43)
 }
 
+-- Compatibility fields used by Bedwars/custom components copied from new.lua/rise.lua.
+palette.Main = palette.Panel
+palette.Font = sigmaFontRegular
+palette.FontLight = sigmaFontLight
+palette.FontSemiBold = sigmaFontSemiBold
+palette.Tween = TweenInfo.new(0.16, Enum.EasingStyle.Linear)
+
 local function protectcall(fn)
     local ok, err = pcall(fn)
     if not ok then
@@ -2724,6 +2731,13 @@ local fallbackAuraAnims = {
     }
 }
 
+local function sigmaCoerceColor(col, fallback)
+    if typeof and typeof(col) == 'Color3' then
+        return col
+    end
+    return fallback or palette.Panel or Color3.fromRGB(255, 255, 255)
+end
+
 mainapi.Libraries = {
     tween = {Tween = tween},
     getcustomasset = getcustomasset,
@@ -2731,10 +2745,12 @@ mainapi.Libraries = {
     uipallet = palette,
     color = {
         Dark = function(col, num)
+            col = sigmaCoerceColor(col, palette.Panel)
             local h, s, v = col:ToHSV()
             return Color3.fromHSV(h, s, math.clamp(v - (num or 0.1), 0, 1))
         end,
         Light = function(col, num)
+            col = sigmaCoerceColor(col, palette.Panel)
             local h, s, v = col:ToHSV()
             return Color3.fromHSV(h, s, math.clamp(v + (num or 0.1), 0, 1))
         end
