@@ -44,6 +44,7 @@ local inputService = cloneref(game:GetService('UserInputService'))
 local playersService = cloneref(game:GetService('Players'))
 local runService = cloneref(game:GetService('RunService'))
 local textService = cloneref(game:GetService('TextService'))
+local httpService = cloneref(game:GetService('HttpService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
 
 
@@ -56,6 +57,7 @@ local assetfunction = getcustomasset or getsynasset
 local getcustomasset
 
 local getcustomassets = {
+    ['vape/assets/sigmajello/font.otf'] = '',
     ['vape/assets/sigmajello/CombatCat.png'] = '',
     ['vape/assets/sigmajello/ItemCat.png'] = '',
     ['vape/assets/sigmajello/JelloPanel.png'] = '',
@@ -246,6 +248,58 @@ end
 local function sigmaAsset(path)
     return getcustomasset(path) or ''
 end
+
+
+local function createFontFromFamily(family, weight)
+    local ok, result = pcall(function()
+        return Font.new(family, weight or Enum.FontWeight.Regular)
+    end)
+    return ok and result or Font.fromEnum(Enum.Font.Arial)
+end
+
+local function writeSigmaFont()
+    local fallback = 'rbxasset://fonts/families/Arial.json'
+    if not assetfunction or not writefile then
+        return fallback
+    end
+
+    ensureFolder('vape/assets/sigmajello')
+
+    local fontAsset
+    local ok = pcall(function()
+        fontAsset = getcustomasset('vape/assets/sigmajello/font.otf')
+    end)
+    if not ok or not fontAsset or fontAsset == '' then
+        return fallback
+    end
+
+    local jsonPath = 'vape/assets/sigmajello/sigmafont.json'
+    local wrote = pcall(function()
+        writefile(jsonPath, httpService:JSONEncode({
+            name = 'SigmaJello',
+            faces = {
+                {style = 'normal', assetId = fontAsset, name = 'Light', weight = 300},
+                {style = 'normal', assetId = fontAsset, name = 'Regular', weight = 400},
+                {style = 'normal', assetId = fontAsset, name = 'Medium', weight = 500},
+                {style = 'normal', assetId = fontAsset, name = 'SemiBold', weight = 600}
+            }
+        }))
+    end)
+    if not wrote then
+        return fallback
+    end
+
+    local okAsset, fontFamily = pcall(function()
+        return getcustomasset(jsonPath)
+    end)
+    return okAsset and fontFamily and fontFamily ~= '' and fontFamily or fallback
+end
+
+local sigmaFontFamily = writeSigmaFont()
+local sigmaFontRegular = createFontFromFamily(sigmaFontFamily, Enum.FontWeight.Regular)
+local sigmaFontLight = createFontFromFamily(sigmaFontFamily, Enum.FontWeight.Light)
+local sigmaFontMedium = createFontFromFamily(sigmaFontFamily, Enum.FontWeight.Medium)
+local sigmaFontSemiBold = createFontFromFamily(sigmaFontFamily, Enum.FontWeight.SemiBold)
 
 function mainapi:DownloadSigmaAssets()
     for path in next, getcustomassets do
@@ -494,7 +548,7 @@ components.Button = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(8 + (settings.Darker and 10 or 0), 0),
         Size = UDim2.new(1, -16, 1, 0),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = settings.Name or 'Button',
         TextColor3 = palette.Text,
         TextSize = 15,
@@ -540,7 +594,7 @@ components.Toggle = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(8 + (settings.Darker and 10 or 0), 0),
         Size = UDim2.new(1, -48, 1, 0),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = settings.Name or 'Toggle',
         TextColor3 = palette.Text,
         TextSize = 15,
@@ -614,7 +668,7 @@ components.Slider = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(8 + (settings.Darker and 10 or 0), 2),
         Size = UDim2.new(1, -80, 0, 20),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = settings.Name or 'Slider',
         TextColor3 = palette.Text,
         TextSize = 14,
@@ -625,7 +679,7 @@ components.Slider = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -70, 0, 2),
         Size = UDim2.fromOffset(62, 20),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = tostring(default)..(settings.Suffix and (' '..settings.Suffix) or ''),
         TextColor3 = palette.Muted,
         TextSize = 13,
@@ -781,7 +835,7 @@ components.Dropdown = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(8 + (settings.Darker and 10 or 0), 0),
         Size = UDim2.new(1, -38, 1, 0),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = settings.Name or 'Dropdown',
         TextColor3 = palette.Text,
         TextSize = 14,
@@ -794,7 +848,7 @@ components.Dropdown = function(settings, children, api)
         Position = UDim2.new(1, -12, 0.5, 0),
         Size = UDim2.fromOffset(18, 18),
         BackgroundTransparency = 1,
-        Font = Enum.Font.Gotham,
+        FontFace = sigmaFontRegular,
         Text = '⌄',
         TextColor3 = palette.Muted,
         TextSize = 18
@@ -828,7 +882,7 @@ components.Dropdown = function(settings, children, api)
             BackgroundTransparency = 1,
             Position = UDim2.fromOffset(12, 0),
             Size = UDim2.new(1, -16, 1, 0),
-            Font = Enum.Font.GothamLight,
+            FontFace = sigmaFontLight,
             Text = tostring(value),
             TextColor3 = palette.Text,
             TextSize = 13,
@@ -890,7 +944,7 @@ components.TextBox = function(settings, children, api)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(8 + (settings.Darker and 10 or 0), 0),
         Size = UDim2.new(1, -16, 0, 22),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = settings.Name or 'TextBox',
         TextColor3 = palette.Text,
         TextSize = 14,
@@ -903,7 +957,7 @@ components.TextBox = function(settings, children, api)
         BackgroundColor3 = Color3.fromRGB(245, 245, 245),
         BorderSizePixel = 0,
         ClearTextOnFocus = false,
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         PlaceholderText = settings.Placeholder or settings.Name or '',
         Text = tostring(optionapi.Value),
         TextColor3 = palette.Text,
@@ -954,7 +1008,7 @@ components.TextList = function(settings, children, api)
         ClearTextOnFocus = false,
         PlaceholderText = settings.Name or 'Value',
         Text = '',
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         TextColor3 = palette.Text,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left
@@ -966,7 +1020,7 @@ components.TextList = function(settings, children, api)
         Size = UDim2.fromOffset(20, 23),
         BackgroundTransparency = 1,
         AutoButtonColor = false,
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = '+',
         TextColor3 = palette.AccentDark,
         TextSize = 22
@@ -993,7 +1047,7 @@ components.TextList = function(settings, children, api)
             BackgroundTransparency = 1,
             Position = UDim2.fromOffset(12, 0),
             Size = UDim2.new(1, -35, 1, 0),
-            Font = Enum.Font.GothamLight,
+            FontFace = sigmaFontLight,
             Text = value,
             TextColor3 = palette.Text,
             TextSize = 13,
@@ -1004,7 +1058,7 @@ components.TextList = function(settings, children, api)
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -26, 0, 0),
             Size = UDim2.fromOffset(22, 24),
-            Font = Enum.Font.GothamLight,
+            FontFace = sigmaFontLight,
             Text = '×',
             TextColor3 = palette.Muted,
             TextSize = 16
@@ -1094,11 +1148,11 @@ components.ColorSlider = function(settings, children, api)
 end
 
 components.Font = function(settings, children, api)
-    local list = {'Arial', 'Gotham', 'GothamLight', 'SourceSans', 'Code'}
+    local list = {'Sigma', 'Arial', 'SourceSans', 'Code'}
     return components.Dropdown({
         Name = settings.Name or 'Font',
         List = list,
-        Default = settings.Default or 'GothamLight',
+        Default = settings.Default or 'Sigma',
         Function = settings.Function,
         Darker = settings.Darker,
         Visible = settings.Visible
@@ -1174,7 +1228,7 @@ local function createJelloColumn(categorysettings, categoryapi, parent, visible)
         Parent = header,
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = categorysettings.Name or 'Category',
         TextColor3 = palette.TextLight,
         TextSize = 22,
@@ -1245,7 +1299,7 @@ local function createModuleButton(categoryapi, modulesettings)
         BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 27),
         AutoButtonColor = false,
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = modulesettings.Name or 'Module',
         TextColor3 = palette.Text,
         TextSize = 17
@@ -1447,7 +1501,7 @@ local function initGui()
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(28, 18),
         Size = UDim2.fromOffset(210, 60),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = 'Sigma',
         TextColor3 = Color3.fromRGB(235, 240, 255),
         TextTransparency = 0.15,
@@ -1548,8 +1602,8 @@ function mainapi:CreateCategory(categorysettings)
         local holder = make('Frame', {Name = tostring(pane.Name)..'SettingsPane', Parent = self.Children, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 28), ClipsDescendants = true})
         pane.Object = holder
         local button = createOptionBase(holder, pane.Name, 28, false)
-        make('TextLabel', {Parent = button, BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -30, 1, 0), Font = Enum.Font.GothamLight, Text = pane.Name, TextColor3 = palette.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left})
-        local arrow = make('TextLabel', {Parent = button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, Font = Enum.Font.Gotham, Text = '⌄', TextColor3 = palette.Muted, TextSize = 18})
+        make('TextLabel', {Parent = button, BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -30, 1, 0), FontFace = sigmaFontLight, Text = pane.Name, TextColor3 = palette.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left})
+        local arrow = make('TextLabel', {Parent = button, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, FontFace = sigmaFontRegular, Text = '⌄', TextColor3 = palette.Muted, TextSize = 18})
         local children = make('Frame', {Parent = holder, Name = 'Children', BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 0), Visible = false})
         pane.Children = children
         local layout = addLayout(children, UDim.new(0, 0))
@@ -1646,7 +1700,7 @@ function mainapi:CreateGUI()
             BackgroundTransparency = 1,
             Position = UDim2.fromOffset(8, 0),
             Size = UDim2.new(1, -30, 1, 0),
-            Font = Enum.Font.GothamLight,
+            FontFace = sigmaFontLight,
             Text = settings.Name or 'Settings',
             TextColor3 = palette.Text,
             TextSize = 15,
@@ -1658,7 +1712,7 @@ function mainapi:CreateGUI()
             Position = UDim2.new(1, -10, 0.5, 0),
             Size = UDim2.fromOffset(18, 18),
             BackgroundTransparency = 1,
-            Font = Enum.Font.Gotham,
+            FontFace = sigmaFontRegular,
             Text = '⌄',
             TextColor3 = palette.Muted,
             TextSize = 18
@@ -1799,8 +1853,8 @@ function mainapi:CreateLegit()
     })
     addShadow(window)
     local header = make('Frame', {Parent = window, Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = palette.Header, BorderSizePixel = 0})
-    make('TextLabel', {Parent = header, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = Enum.Font.GothamLight, Text = 'Sigma legit', TextColor3 = palette.TextLight, TextSize = 22})
-    local close = make('TextButton', {Parent = header, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(30, 30), BackgroundTransparency = 1, Text = '×', Font = Enum.Font.GothamLight, TextSize = 24, TextColor3 = palette.TextLight})
+    make('TextLabel', {Parent = header, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), FontFace = sigmaFontLight, Text = 'Sigma legit', TextColor3 = palette.TextLight, TextSize = 22})
+    local close = make('TextButton', {Parent = header, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(30, 30), BackgroundTransparency = 1, Text = '×', FontFace = sigmaFontLight, TextSize = 24, TextColor3 = palette.TextLight})
     close.MouseButton1Click:Connect(function() window.Visible = false end)
     makeDraggable(header, window)
     local children = make('ScrollingFrame', {Parent = window, Position = UDim2.fromOffset(12, 54), Size = UDim2.new(1, -24, 1, -66), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(), ScrollBarThickness = 2})
@@ -1818,7 +1872,7 @@ function mainapi:CreateLegit()
         mainapi:Remove(settings.Name)
         local moduleapi = {Enabled = false, Options = {}, Name = settings.Name, Legit = true}
         local card = make('TextButton', {Parent = children, BackgroundColor3 = Color3.fromRGB(255,255,255), BackgroundTransparency = 0, BorderSizePixel = 0, AutoButtonColor = false, Text = ''})
-        make('TextLabel', {Parent = card, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 72), Size = UDim2.new(1, -24, 0, 24), Font = Enum.Font.GothamLight, Text = settings.Name or 'Module', TextColor3 = palette.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+        make('TextLabel', {Parent = card, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 72), Size = UDim2.new(1, -24, 0, 24), FontFace = sigmaFontLight, Text = settings.Name or 'Module', TextColor3 = palette.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
         local dot = make('Frame', {Parent = card, Position = UDim2.fromOffset(14, 16), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.fromRGB(190,190,190), BorderSizePixel = 0})
         addCorner(dot, UDim.new(1, 0))
         moduleapi.Object = card
@@ -1852,8 +1906,8 @@ function mainapi:CreateNotification(title, text, duration, notifType)
         Size = UDim2.fromOffset(260, 58)
     })
     addShadow(notif)
-    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 7), Size = UDim2.new(1, -24, 0, 22), Font = Enum.Font.Gotham, Text = tostring(title or 'Sigma'), TextColor3 = palette.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left})
-    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 0, 20), Font = Enum.Font.GothamLight, Text = tostring(text or ''), TextColor3 = palette.Muted, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
+    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 7), Size = UDim2.new(1, -24, 0, 22), FontFace = sigmaFontRegular, Text = tostring(title or 'Sigma'), TextColor3 = palette.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left})
+    make('TextLabel', {Parent = notif, BackgroundTransparency = 1, Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 0, 20), FontFace = sigmaFontLight, Text = tostring(text or ''), TextColor3 = palette.Muted, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
     local bar = make('Frame', {Parent = notif, Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = notifType == 'alert' and Color3.fromRGB(255, 90, 90) or palette.Accent, BorderSizePixel = 0})
     tween(notif, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -22, 1, -(24 + (index * 70)))})
     tween(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.fromOffset(0, 2)})
@@ -1959,7 +2013,7 @@ local function makeSigmaArrayLabel(name, moduleapi, right)
     end
 
     local clean = removeRichText(moduleText)
-    local size = getTextSize(clean, 18, Font.fromEnum(Enum.Font.GothamLight))
+    local size = getTextSize(clean, 18, sigmaFontLight)
 
     local holder = make('Frame', {
         Name = tostring(name),
@@ -2009,7 +2063,7 @@ local function makeSigmaArrayLabel(name, moduleapi, right)
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(right and 0 or (sigmaBackground.Enabled and 7 or 0), 0),
         Size = UDim2.fromOffset(size.X + 4, size.Y + 4),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = moduleText,
         RichText = true,
         TextColor3 = palette.Accent,
@@ -2175,7 +2229,7 @@ local function createSigmaInterface()
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(2, 2),
         Size = UDim2.fromOffset(185, 62),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = 'Sigma',
         TextColor3 = Color3.new(0, 0, 0),
         TextTransparency = 0.75,
@@ -2196,7 +2250,7 @@ local function createSigmaInterface()
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(2, 58),
         Size = UDim2.fromOffset(400, 26),
-        Font = Enum.Font.GothamLight,
+        FontFace = sigmaFontLight,
         Text = '',
         TextColor3 = Color3.new(0, 0, 0),
         TextTransparency = 0.72,
@@ -2271,7 +2325,7 @@ function mainapi:UpdateTextGUI(afterload)
         table.sort(modules, function(a, b)
             local at = tostring(a.Name)..(a.Module.ExtraText and tostring(select(2, pcall(a.Module.ExtraText)) or '') or '')
             local bt = tostring(b.Name)..(b.Module.ExtraText and tostring(select(2, pcall(b.Module.ExtraText)) or '') or '')
-            return getTextSize(removeRichText(at), 18, Font.fromEnum(Enum.Font.GothamLight)).X > getTextSize(removeRichText(bt), 18, Font.fromEnum(Enum.Font.GothamLight)).X
+            return getTextSize(removeRichText(at), 18, sigmaFontLight).X > getTextSize(removeRichText(bt), 18, sigmaFontLight).X
         end)
     end
 
