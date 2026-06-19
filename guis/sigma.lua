@@ -31,7 +31,7 @@ local mainapi = {
     Scale = {Value = 1, Enabled = true},
     ToggleNotifications = {Enabled = true},
     ThreadFix = setthreadidentity and true or false,
-    Version = 'Sigma-Jello-1.2.2-assetdownloads',
+    Version = 'Sigma-Jello-1.2.3-librarycompat',
     Windows = {}
 }
 
@@ -2307,8 +2307,124 @@ function mainapi:UpdateGUI(hue, sat, val)
 end
 function mainapi:BlurCheck() end
 
+local function downloadRawFile(path)
+    if not isfile(path) then
+        pcall(createDownloader, path)
+        ensureFolder((path:match('^(.+)/[^/]+$') or 'vape'))
+
+        local remotePath = select(1, tostring(path):gsub('^vape/', ''))
+        local commit = getCommit()
+        local suc, res = pcall(function()
+            return game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/'..commit..'/'..encodeUrlPath(remotePath), true)
+        end)
+
+        if not suc or res == '404: Not Found' or not res or res == '' then
+            suc, res = pcall(function()
+                return game:HttpGet('https://raw.githubusercontent.com/o1nb/Vape-UD/main/'..encodeUrlPath(remotePath), true)
+            end)
+        end
+
+        if not suc or res == '404: Not Found' or not res or res == '' then
+            warn('[Sigma] Failed to download file: '..tostring(path))
+            return nil
+        end
+
+        if path:find('%.lua$') then
+            res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+        end
+
+        if writefile then
+            local wrote = pcall(writefile, path, res)
+            if not wrote then
+                warn('[Sigma] Failed to write file: '..tostring(path))
+                return nil
+            end
+        else
+            return nil
+        end
+    end
+
+    local suc, res = pcall(readfile, path)
+    return suc and res or nil
+end
+
+local function loadSigmaLibrary(name, fallback)
+    local path = 'vape/libraries/'..name..'.lua'
+    local source = downloadRawFile(path)
+    if source then
+        local func, err = loadstring(source, name)
+        if func then
+            local suc, result = pcall(func)
+            if suc and result ~= nil then
+                return result
+            end
+            warn('[Sigma] Library runtime error '..name..': '..tostring(result))
+        else
+            warn('[Sigma] Library compile error '..name..': '..tostring(err))
+        end
+    end
+    return fallback
+end
+
+local fallbackTargetInfo = {
+    Targets = {},
+    LastTarget = nil,
+    UpdateInfo = function(self)
+        local best, bestTime
+        for ent, expire in pairs(self.Targets) do
+            if type(expire) ~= 'number' or expire < tick() then
+                self.Targets[ent] = nil
+            elseif not bestTime or expire > bestTime then
+                best, bestTime = ent, expire
+            end
+        end
+        self.LastTarget = best
+        return best
+    end
+}
+
+local fallbackSessionInfo = {Items = {}}
+function fallbackSessionInfo:AddItem(name, default, callback)
+    local item = {
+        Name = name,
+        Value = default or 0,
+        Callback = callback
+    }
+    function item:Increment(amount)
+        self.Value = (tonumber(self.Value) or 0) + (amount or 1)
+        return self.Value
+    end
+    function item:Set(value)
+        self.Value = value
+        return self.Value
+    end
+    function item:Get()
+        if self.Callback then
+            local suc, res = pcall(self.Callback)
+            if suc then return res end
+        end
+        return self.Value
+    end
+    self.Items[name] = item
+    return item
+end
+
+local fallbackWhitelist = {customtags = {}}
+function fallbackWhitelist:get()
+    return nil, true
+end
+function fallbackWhitelist:tag()
+    return ''
+end
+
+local fallbackPrediction = {}
+function fallbackPrediction.SolveTrajectory()
+    return nil
+end
+
 mainapi.Libraries = {
     tween = {Tween = tween},
+    getcustomasset = getcustomasset,
     getfontsize = getTextSize,
     uipallet = palette,
     color = {
@@ -2322,6 +2438,12 @@ mainapi.Libraries = {
         end
     }
 }
+
+mainapi.Libraries.entity = loadSigmaLibrary('entity')
+mainapi.Libraries.prediction = loadSigmaLibrary('prediction', fallbackPrediction)
+mainapi.Libraries.targetinfo = fallbackTargetInfo
+mainapi.Libraries.sessioninfo = fallbackSessionInfo
+mainapi.Libraries.whitelist = fallbackWhitelist
 
 -- Default built-in Sigma settings column, matching the original GUI libraries' expected Main category setup.
 mainapi.Categories.Main = mainapi:CreateGUI()
