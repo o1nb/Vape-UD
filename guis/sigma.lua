@@ -1336,120 +1336,48 @@ local function createModuleButton(categoryapi, modulesettings)
 end
 
 local function createMusicPanel()
-    local music = make('Frame', {
+    -- JelloMusic is a single PNG background from the Jello asset pack.
+    -- No rebuilt frame layout here; the image already contains the full panel.
+    local music = make('ImageLabel', {
         Name = 'JelloMusic',
         Parent = clickgui,
-        BackgroundColor3 = palette.MusicPanel,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 995, 0, 102),
-        Size = UDim2.fromOffset(720, 540),
+        Position = UDim2.fromOffset(995, 102),
+        Size = UDim2.fromOffset(841, 624),
+        Image = sigmaAsset('jello music background.png'),
+        ScaleType = Enum.ScaleType.Fit,
+        Active = true,
         ClipsDescendants = true
     })
+
     mainapi.MusicPanel = music
     mainapi.JelloMusic = music
+    makeDraggable(music, music)
 
-    local left = make('Frame', {
-        Name = 'LeftPanel',
-        Parent = music,
-        BackgroundColor3 = palette.MusicDark,
-        BorderSizePixel = 0,
-        Size = UDim2.new(0, 225, 1, -84)
-    })
-    makeDraggable(left, music)
+    -- Tiny invisible hitboxes so old code can still find/use music controls later.
+    -- They do not draw anything over the PNG.
+    local controls = {
+        Rewind = {Pos = UDim2.fromOffset(345, 558), Size = UDim2.fromOffset(70, 45)},
+        Play = {Pos = UDim2.fromOffset(450, 558), Size = UDim2.fromOffset(70, 45)},
+        FastForward = {Pos = UDim2.fromOffset(555, 558), Size = UDim2.fromOffset(70, 45)}
+    }
 
-    make('TextLabel', {
-        Parent = left,
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(48, 24),
-        Size = UDim2.fromOffset(140, 45),
-        Font = Enum.Font.GothamLight,
-        Text = 'Sigma',
-        TextColor3 = Color3.new(1, 1, 1),
-        TextSize = 34,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    make('TextLabel', {
-        Parent = left,
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(145, 37),
-        Size = UDim2.fromOffset(70, 25),
-        Font = Enum.Font.GothamLight,
-        Text = 'music',
-        TextColor3 = Color3.new(1, 1, 1),
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
-    local songList = make('Frame', {
-        Parent = left,
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 78),
-        Size = UDim2.new(1, 0, 1, -90)
-    })
-    addLayout(songList, UDim.new(0, 12))
-    local songs = {'Trap Nation', 'Electro Posé', 'Chill Nation', 'VEVO', 'MrSuicideSheep', 'Trap City', 'CloudKid'}
-    for _, song in ipairs(songs) do
-        local s = make('TextButton', {
-            Parent = songList,
+    mainapi.JelloMusicControls = {}
+    for name, data in pairs(controls) do
+        local button = make('TextButton', {
+            Name = name,
+            Parent = music,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 24),
-            AutoButtonColor = false,
-            Font = Enum.Font.GothamLight,
-            Text = song,
-            TextColor3 = Color3.new(1, 1, 1),
-            TextSize = 12
-        })
-        s.MouseEnter:Connect(function() tween(s, nil, {TextSize = 14, TextColor3 = Color3.fromRGB(210, 225, 255)}) end)
-        s.MouseLeave:Connect(function() tween(s, nil, {TextSize = 12, TextColor3 = Color3.new(1, 1, 1)}) end)
-    end
-
-    local visual = make('Frame', {
-        Parent = music,
-        BackgroundColor3 = Color3.fromRGB(60, 66, 78),
-        BackgroundTransparency = 0.1,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(225, 0),
-        Size = UDim2.new(1, -225, 1, -84)
-    })
-    for i = 1, 9 do
-        make('Frame', {
-            Parent = visual,
-            BackgroundColor3 = Color3.fromRGB(80, 85, 96),
-            BackgroundTransparency = 0.58,
             BorderSizePixel = 0,
-            Rotation = -18,
-            Position = UDim2.fromOffset(math.random(40, 450), math.random(10, 220)),
-            Size = UDim2.fromOffset(math.random(40, 100), 10)
-        })
-    end
-
-    local controls = make('Frame', {
-        Parent = music,
-        BackgroundColor3 = palette.Control,
-        BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 1, -84),
-        Size = UDim2.new(1, 0, 0, 84)
-    })
-    local function control(txt, x)
-        return make('TextButton', {
-            Parent = controls,
-            BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(x, 19),
-            Size = UDim2.fromOffset(70, 45),
+            Position = data.Pos,
+            Size = data.Size,
             AutoButtonColor = false,
-            Font = Enum.Font.Gotham,
-            Text = txt,
-            TextColor3 = Color3.new(1, 1, 1),
-            TextSize = 26
+            Text = '',
+            Active = true
         })
+        mainapi.JelloMusicControls[name] = button
     end
-    control('◀◀', 350)
-    control('▶', 455)
-    control('▶▶', 560)
-    make('TextLabel', {Parent = controls, BackgroundTransparency = 1, Position = UDim2.fromOffset(235, 54), Size = UDim2.fromOffset(80, 20), Font = Enum.Font.GothamLight, Text = '0:00', TextColor3 = Color3.fromRGB(230, 230, 230), TextSize = 13})
-    make('TextLabel', {Parent = controls, BackgroundTransparency = 1, Position = UDim2.new(1, -55, 0, 54), Size = UDim2.fromOffset(50, 20), Font = Enum.Font.GothamLight, Text = '0:00', TextColor3 = Color3.fromRGB(230, 230, 230), TextSize = 13})
-    make('Frame', {Parent = controls, BackgroundColor3 = Color3.fromRGB(230, 230, 230), BorderSizePixel = 0, Position = UDim2.new(1, -20, 0, 28), Size = UDim2.fromOffset(3, 36)})
 end
 
 function mainapi:GetJelloMusic()
