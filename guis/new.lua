@@ -5797,12 +5797,6 @@ mainapi:CreateCategory({
 	Icon = getcustomasset('vape/assets/new/miniicon.png'),
 	Size = UDim2.fromOffset(19, 12)
 })
-mainapi.Categories.Main:CreateDivider('Abyss')
-mainapi:CreateCategory({
-	Name = 'Exploit',
-	Icon = getcustomasset('vape/assets/new/miniicon.png'),
-	Size = UDim2.fromOffset(20, 10)
-})
 mainapi.Categories.Main:CreateDivider('misc')
 
 --[[
