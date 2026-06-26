@@ -1,3 +1,4 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local mainapi = {
 	Categories = {},
 	GUIColor = {
@@ -121,6 +122,9 @@ local getcustomassets = {
 	['vape/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
 	['vape/assets/new/vape.png'] = 'rbxassetid://14373395239',
 	['vape/assets/new/warning.png'] = 'rbxassetid://14368361552',
+	['vape/assets/new/sob_emoji.png'] = '',
+	['vape/assets/new/sad_emoji.png'] = '',
+	['vape/assets/new/angry_emoji.png'] = '',
 	['vape/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
 }
 
