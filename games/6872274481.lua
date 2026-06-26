@@ -1,4 +1,5 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
 	func()
 end
@@ -2146,9 +2147,20 @@ run(function()
 	local AnimationSpeed
 	local Limit
 	local LegitAura
+	local Emojis
 	local LastSwing = tick()
 	local AnimBase, AnimThread, AnimQueued
+	local EmojiFolder = Instance.new('Folder')
+	EmojiFolder.Name = 'KillAuraEmojis'
+	EmojiFolder.Parent = vape.gui
+	local EmojiBillboard, EmojiImage, EmojiTarget, EmojiAssets
 	local AttackRemote = {FireServer = function() end}
+	local EmojiConnection
+	EmojiAssets = {
+		'assets/new/angry_emoji.png',
+		'assets/new/sad_emoji.png',
+		'assets/new/sob_emoji.png'
+	}
 	task.spawn(function()
 		AttackRemote = bedwars.Client:Get(remotes.AttackEntity).instance
 	end)
@@ -2276,6 +2288,75 @@ run(function()
 		return hand and hand:FindFirstChild('RightWrist')
 	end
 
+	local function getAuraEmojiAsset()
+		local path = EmojiAssets[math.random(1, #EmojiAssets)]
+		for _, prefix in {'newvape/', 'vape/', ''} do
+			local suc, res = pcall(getcustomasset, prefix..path)
+			if suc and res and res ~= '' then
+				return res
+			end
+		end
+		return ''
+	end
+
+	local function clearAuraEmoji()
+		EmojiTarget = nil
+		if EmojiBillboard then
+			EmojiBillboard:Destroy()
+			EmojiBillboard = nil
+			EmojiImage = nil
+		end
+	end
+
+	local function updateAuraEmoji()
+		local target = Emojis and Emojis.Enabled and store.AuraTarget
+		local adornee = target and target.Character and (target.Character:FindFirstChild('Head') or target.RootPart)
+		if not adornee then
+			clearAuraEmoji()
+			return
+		end
+
+		if EmojiTarget ~= target or not EmojiBillboard then
+			clearAuraEmoji()
+			EmojiTarget = target
+
+			EmojiBillboard = Instance.new('BillboardGui')
+			EmojiBillboard.Name = 'KillAuraEmoji'
+			EmojiBillboard.Size = UDim2.fromOffset(96, 96)
+			EmojiBillboard.StudsOffsetWorldSpace = Vector3.new(0, 3.15, 0)
+			EmojiBillboard.AlwaysOnTop = true
+			EmojiBillboard.ClipsDescendants = false
+			EmojiBillboard.Adornee = adornee
+			EmojiBillboard.Parent = EmojiFolder
+
+			EmojiImage = Instance.new('ImageLabel')
+			EmojiImage.AnchorPoint = Vector2.new(0.5, 0.5)
+			EmojiImage.Position = UDim2.fromScale(0.5, 0.5)
+			EmojiImage.Size = UDim2.fromScale(1, 1)
+			EmojiImage.BackgroundTransparency = 1
+			EmojiImage.Image = getAuraEmojiAsset()
+			EmojiImage.Parent = EmojiBillboard
+		else
+			EmojiBillboard.Adornee = adornee
+		end
+
+		EmojiImage.Rotation = math.sin(tick() * 3.5) * 14
+	end
+
+	local function startAuraEmoji()
+		if EmojiConnection or not (Emojis and Emojis.Enabled) then return end
+		EmojiConnection = runService.RenderStepped:Connect(updateAuraEmoji)
+		Aura:Clean(EmojiConnection)
+	end
+
+	local function stopAuraEmoji()
+		if EmojiConnection then
+			EmojiConnection:Disconnect()
+			EmojiConnection = nil
+		end
+		clearAuraEmoji()
+	end
+
 	local function playAuraAnimation()
 		if AnimThread then
 			AnimQueued = true
@@ -2339,6 +2420,7 @@ run(function()
 						lplr.PlayerGui.MobileUI['2'].Visible = Limit.Enabled
 					end)
 				end
+				startAuraEmoji()
 
 				repeat
 					local attacked, sword, meta = {}, getAttackData()
@@ -2422,6 +2504,7 @@ run(function()
 				until not Aura.Enabled
 			else
 				store.AuraTarget = nil
+				stopAuraEmoji()
 				if inputService.TouchEnabled then
 					pcall(function()
 						lplr.PlayerGui.MobileUI['2'].Visible = true
@@ -2509,6 +2592,17 @@ run(function()
 		Name = 'Swing',
 		Default = true,
 		Tooltip = 'Plays local sword swings while attacking'
+	})
+	Emojis = Aura:CreateToggle({
+		Name = 'Emojis',
+		Function = function(callback)
+			if callback and Aura.Enabled then
+				startAuraEmoji()
+			else
+				stopAuraEmoji()
+			end
+		end,
+		Tooltip = 'Shows a swaying emoji above the KillAura target'
 	})
 	Animation = Aura:CreateToggle({
 		Name = 'Animation',
