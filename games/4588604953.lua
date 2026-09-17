@@ -111,6 +111,10 @@ pcall(function()
 	vape:Remove('AimAssist')
 end)
 
+pcall(function()
+	vape:Remove('SilentAim')
+end)
+
 run(function()
 	local AimAssist
 	local FOV
@@ -366,6 +370,436 @@ run(function()
 	})
 
 	CircleColor = AimAssist:CreateColorSlider({
+		Name = 'Circle color',
+		DefaultHue = 0.44,
+		DefaultSat = 1,
+		DefaultValue = 1,
+		DefaultOpacity = 0.75
+	})
+end)
+
+run(function()
+	local SilentAim
+	local FOV
+	local AimPart
+	local HeadshotChance
+	local HitChance
+	local MaxDistance
+	local WallCheck
+	local Prediction
+	local ShowCircle
+	local CircleColor
+
+	local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
+	local gunRemote = replicatedStorage:WaitForChild('Events'):WaitForChild('GNX_S')
+	local getConfigModule
+
+	pcall(function()
+		getConfigModule = require(
+			replicatedStorage
+				:WaitForChild('NewModules')
+				:WaitForChild('Shared')
+				:WaitForChild('Extensions')
+				:WaitForChild('GetConfig')
+		)
+	end)
+
+	local configCache = setmetatable({}, {__mode = 'k'})
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.IgnoreWater = true
+
+	local circleGui
+	local circle
+	local circleStroke
+
+	local hookState = shared.__VapeCriminalitySilentAim
+	if type(hookState) ~= 'table' then
+		hookState = {}
+		shared.__VapeCriminalitySilentAim = hookState
+	end
+
+	local function getGunConfig(tool)
+		if not tool then
+			return nil
+		end
+
+		if configCache[tool] then
+			return configCache[tool]
+		end
+
+		local config
+
+		if getConfigModule then
+			local ok, result = pcall(getConfigModule, tool)
+			if ok and type(result) == 'table' then
+				config = result
+			end
+		end
+
+		if not config then
+			local module = tool:FindFirstChild('Config')
+			if module and module:IsA('ModuleScript') then
+				local ok, result = pcall(require, module)
+				if ok and type(result) == 'table' then
+					config = result
+				end
+			end
+		end
+
+		if config then
+			configCache[tool] = config
+		end
+
+		return config
+	end
+
+	local function getTargetPart(char)
+		if AimPart.Value == 'Head' then
+			return char:FindFirstChild('Head') or getTorso(char)
+		end
+
+		if AimPart.Value == 'Torso' then
+			return getTorso(char) or char:FindFirstChild('Head')
+		end
+
+		if math.random(1, 100) <= HeadshotChance.Value then
+			return char:FindFirstChild('Head') or getTorso(char)
+		end
+
+		return getTorso(char) or char:FindFirstChild('Head')
+	end
+
+	local function visibleTo(origin, part, char)
+		if not WallCheck.Enabled then
+			return true
+		end
+
+		local ignore = {}
+		if lplr.Character then
+			table.insert(ignore, lplr.Character)
+		end
+
+		if workspace:FindFirstChild('Filter') then
+			table.insert(ignore, workspace.Filter)
+		end
+
+		rayParams.FilterDescendantsInstances = ignore
+
+		local result = workspace:Raycast(origin, part.Position - origin, rayParams)
+		return result == nil or result.Instance:IsDescendantOf(char)
+	end
+
+	local function getClosestTarget(origin)
+		gameCamera = workspace.CurrentCamera or gameCamera
+
+		local mousePos = inputService:GetMouseLocation()
+		local closestPlayer
+		local closestPart
+		local closestScreenDistance = FOV.Value
+
+		for _, plr in playersService:GetPlayers() do
+			if plr == lplr or isFriend(plr) or not isAlive(plr) then
+				continue
+			end
+
+			local char = plr.Character
+			local root = getRoot(char)
+			local part = getTargetPart(char)
+
+			if not root or not part then
+				continue
+			end
+
+			local worldDistance = (part.Position - origin).Magnitude
+			if MaxDistance.Value > 0 and worldDistance > MaxDistance.Value then
+				continue
+			end
+
+			local screen, onScreen = gameCamera:WorldToViewportPoint(part.Position)
+			if not onScreen or screen.Z <= 0 then
+				continue
+			end
+
+			local screenDistance = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
+			if screenDistance <= closestScreenDistance and visibleTo(origin, part, char) then
+				closestScreenDistance = screenDistance
+				closestPlayer = plr
+				closestPart = part
+			end
+		end
+
+		return closestPlayer, closestPart
+	end
+
+	local function getPredictedPosition(origin, targetPlayer, targetPart, tool)
+		local targetPosition = targetPart.Position
+
+		if not Prediction.Enabled then
+			return targetPosition
+		end
+
+		local config = getGunConfig(tool)
+		local bulletSettings = config and config.BulletSettings
+		local bulletSpeed = bulletSettings and tonumber(bulletSettings.Velocity)
+		local acceleration = bulletSettings and bulletSettings.Acceleration
+
+		if not bulletSpeed or bulletSpeed <= 0 then
+			return targetPosition
+		end
+
+		if typeof(acceleration) ~= 'Vector3' then
+			acceleration = Vector3.zero
+		end
+
+		local root = targetPlayer and getRoot(targetPlayer.Character)
+		local velocity = root and root.AssemblyLinearVelocity or targetPart.AssemblyLinearVelocity
+		if typeof(velocity) ~= 'Vector3' then
+			velocity = Vector3.zero
+		end
+
+		-- Iterate the flight time a few times so lateral movement and bullet drop
+		-- converge on the same time-of-flight estimate.
+		local travelTime = (targetPosition - origin).Magnitude / bulletSpeed
+
+		for _ = 1, 3 do
+			local predicted = targetPosition
+				+ velocity * travelTime
+				- acceleration * (0.5 * travelTime * travelTime)
+
+			travelTime = (predicted - origin).Magnitude / bulletSpeed
+		end
+
+		return targetPosition
+			+ velocity * travelTime
+			- acceleration * (0.5 * travelTime * travelTime)
+	end
+
+	local function rewriteShot(args)
+		if args[4] ~= 'FDS9I83' then
+			return args
+		end
+
+		local origin = args[5]
+		local directions = args[6]
+		local tool = args[3]
+
+		if typeof(origin) ~= 'Vector3' or type(directions) ~= 'table' then
+			return args
+		end
+
+		if math.random(1, 100) > HitChance.Value then
+			return args
+		end
+
+		local targetPlayer, targetPart = getClosestTarget(origin)
+		if not targetPlayer or not targetPart then
+			return args
+		end
+
+		local predictedPosition = getPredictedPosition(origin, targetPlayer, targetPart, tool)
+		local delta = predictedPosition - origin
+
+		if delta.Magnitude <= 0.001 then
+			return args
+		end
+
+		local wantedDirection = delta.Unit
+		local newDirections = table.clone(directions)
+		local changed = false
+
+		for i, value in ipairs(newDirections) do
+			if typeof(value) == 'Vector3' then
+				-- Normal Criminality firearms send unit direction vectors here.
+				-- Launcher packets send a world-space endpoint (~500 studs away),
+				-- so leave those alone instead of corrupting them.
+				if value.Magnitude <= 2.5 then
+					newDirections[i] = wantedDirection
+					changed = true
+				end
+			end
+		end
+
+		if changed then
+			args[6] = newDirections
+		end
+
+		return args
+	end
+
+	local function installHook()
+		hookState.Remote = gunRemote
+		hookState.Rewrite = rewriteShot
+
+		if hookState.Installed then
+			return true
+		end
+
+		if typeof(hookmetamethod) ~= 'function'
+			or typeof(getnamecallmethod) ~= 'function'
+			or typeof(newcclosure) ~= 'function' then
+			warn('[Criminality SilentAim] Executor is missing namecall hook functions.')
+			return false
+		end
+
+		local oldNamecall
+		oldNamecall = hookmetamethod(game, '__namecall', newcclosure(function(self, ...)
+			local method = getnamecallmethod()
+			local state = shared.__VapeCriminalitySilentAim
+
+			if state
+				and state.Enabled
+				and self == state.Remote
+				and method == 'FireServer'
+				and (typeof(checkcaller) ~= 'function' or not checkcaller()) then
+
+				local args = {...}
+
+				if typeof(state.Rewrite) == 'function' then
+					local ok, rewritten = pcall(state.Rewrite, args)
+					if ok and type(rewritten) == 'table' then
+						return oldNamecall(self, table.unpack(rewritten))
+					end
+				end
+			end
+
+			return oldNamecall(self, ...)
+		end))
+
+		hookState.Installed = true
+		hookState.OldNamecall = oldNamecall
+		return true
+	end
+
+	local function makeCircle()
+		safeDestroy(circleGui)
+
+		circleGui = Instance.new('ScreenGui')
+		circleGui.Name = 'VapeCriminalitySilentAimFOV'
+		circleGui.IgnoreGuiInset = true
+		circleGui.ResetOnSpawn = false
+		circleGui.DisplayOrder = 999998
+
+		pcall(function()
+			circleGui.Parent = coreGui
+		end)
+
+		if not circleGui.Parent then
+			circleGui.Parent = lplr:WaitForChild('PlayerGui')
+		end
+
+		circle = Instance.new('Frame')
+		circle.AnchorPoint = Vector2.new(0.5, 0.5)
+		circle.BackgroundTransparency = 1
+		circle.BorderSizePixel = 0
+		circle.Parent = circleGui
+
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = circle
+
+		circleStroke = Instance.new('UIStroke')
+		circleStroke.Thickness = 1.5
+		circleStroke.Transparency = 0.25
+		circleStroke.Parent = circle
+	end
+
+	local function cleanupCircle()
+		safeDestroy(circleGui)
+		circleGui, circle, circleStroke = nil, nil, nil
+	end
+
+	SilentAim = vape.Categories.Combat:CreateModule({
+		Name = 'SilentAim',
+		Function = function(callback)
+			hookState.Enabled = callback
+			hookState.Remote = gunRemote
+			hookState.Rewrite = rewriteShot
+
+			if callback then
+				if not installHook() then
+					hookState.Enabled = false
+					return
+				end
+
+				makeCircle()
+
+				SilentAim:Clean(runService.RenderStepped:Connect(function()
+					if not circle or not circleStroke then
+						return
+					end
+
+					local mousePos = inputService:GetMouseLocation()
+					circle.Position = UDim2.fromOffset(mousePos.X, mousePos.Y)
+					circle.Size = UDim2.fromOffset(FOV.Value * 2, FOV.Value * 2)
+					circle.Visible = ShowCircle.Enabled
+					circleStroke.Color = Color3.fromHSV(CircleColor.Hue, CircleColor.Sat, CircleColor.Value)
+					circleStroke.Transparency = 1 - CircleColor.Opacity
+				end))
+			else
+				cleanupCircle()
+			end
+		end,
+		Tooltip = 'Redirects Criminality GNX_S firearm direction packets toward the closest target without moving your camera.'
+	})
+
+	FOV = SilentAim:CreateSlider({
+		Name = 'FOV',
+		Min = 20,
+		Max = 600,
+		Default = 150,
+		Suffix = 'px'
+	})
+
+	AimPart = SilentAim:CreateDropdown({
+		Name = 'Aim part',
+		List = {'Head', 'Torso', 'Random'},
+		Default = 'Head'
+	})
+
+	HeadshotChance = SilentAim:CreateSlider({
+		Name = 'Headshot chance',
+		Min = 0,
+		Max = 100,
+		Default = 65,
+		Suffix = '%',
+		Tooltip = 'Used when Aim part is Random.'
+	})
+
+	HitChance = SilentAim:CreateSlider({
+		Name = 'Hit chance',
+		Min = 0,
+		Max = 100,
+		Default = 100,
+		Suffix = '%'
+	})
+
+	MaxDistance = SilentAim:CreateSlider({
+		Name = 'Max distance',
+		Min = 0,
+		Max = 1000,
+		Default = 650,
+		Suffix = 'studs',
+		Tooltip = '0 disables the distance limit.'
+	})
+
+	WallCheck = SilentAim:CreateToggle({
+		Name = 'Wall check',
+		Default = true
+	})
+
+	Prediction = SilentAim:CreateToggle({
+		Name = 'Projectile prediction',
+		Default = true,
+		Tooltip = 'Uses the equipped gun BulletSettings velocity and acceleration for lead/drop compensation.'
+	})
+
+	ShowCircle = SilentAim:CreateToggle({
+		Name = 'FOV circle',
+		Default = false
+	})
+
+	CircleColor = SilentAim:CreateColorSlider({
 		Name = 'Circle color',
 		DefaultHue = 0.44,
 		DefaultSat = 1,
@@ -773,6 +1207,11 @@ run(function()
 end)
 
 vape:Clean(function()
+	if shared.__VapeCriminalitySilentAim then
+		shared.__VapeCriminalitySilentAim.Enabled = false
+		shared.__VapeCriminalitySilentAim.Rewrite = nil
+	end
+
 	removeNamedDescendants(workspace, {
 		'VapeCriminalityPlayerESP',
 		'VapeCriminalityPlayerTag',
